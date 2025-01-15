@@ -1,0 +1,44 @@
+# Byte-compiled / optimized / DLL files
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+
+# Environment variables
+.env
+.env.*
+
+# Virtual environments
+venv/
+.env/
+venv.bak/
+env/
+
+# Logs
+*.log
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# IDE Directories
+.idea/
+.vscode/
+
+# Python caches
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.sqlite3
+*.db
+
+# Static and media files
+/static/
+*/migrations/
+
+# Testing
+coverage/
+*.coverage
+.cache/
+.tox/
