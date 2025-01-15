@@ -1,13 +1,11 @@
-# Entangle: Workflow Automation with React Native, Flask, Llama (Groq), and Android Accessibility Services
-
+# Entangle (Automate Your Mobile wokflows)
 ## Overview
-Entangle is a mobile application designed to automate workflows on Android devices using Accessibility Services. It integrates an AI chatbot powered by Llama (Groq) to generate and execute user-defined workflows. The project is built with a modular architecture, making it easy for contributors to collaborate on frontend, backend, AI, and Accessibility Services components.
+Entangle is a mobile application designed to automate workflows on Mobile devices using Accessibility Services. It integrates an AI chatbot powered by Llama (Groq) to generate and execute user-defined workflows. The project is built with a modular architecture, making it easy for contributors to collaborate on frontend, backend, AI, and Accessibility Services components.
 
 ---
 
 ## Key Features
-- **Workflow Automation**: Automate tasks like blocking downloads in the Play Store, hiding YouTube Shorts, or restricting features in apps like Instagram.
-- **AI-Powered Chatbot**: Use Llama (Groq) to generate workflows based on natural language input.
+- **Workflow Automation**: Automate tasks like blocking downloads in the Play Store, hiding YouTube Shorts, or restricting features in apps like Instagram (Just an examople).
 - **Modular Architecture**: Designed for seamless collaboration among teams.
 
 ---
@@ -16,16 +14,12 @@ Entangle is a mobile application designed to automate workflows on Android devic
 
 ### Frontend
 - **Framework**: React Native with Expo
-- **Libraries**: Axios, React Navigation, React Native Permissions
-- **Purpose**: Build a user-friendly interface for creating, managing, and monitoring workflows.
 
 ### Backend
-- **Framework**: Flask
-- **Libraries**: Flask-CORS, Python libraries for Groq Llama integration
-- **Purpose**: Develop APIs to handle workflow requests, integrate with AI, and manage workflow logic.
+- **Framework**: FastAPI  
 
-### AI Chatbot
-- **Model**: Llama (Groq)
+### AI (LLM)
+- **Model**: Llama-70b (Groq)
 - **Purpose**: Generate contextual workflows based on user input.
 
 ### Android Accessibility Services
@@ -76,7 +70,7 @@ We welcome contributions from the community! Whether you're a developer, designe
      ```
    - **Backend**:
      ```bash
-     flask run
+      uvicorn app.main:app --reload
      ```
 
 ---
