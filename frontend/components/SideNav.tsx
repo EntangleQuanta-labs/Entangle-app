@@ -1,33 +1,40 @@
-import React from "react"
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated, SafeAreaView } from "react-native"
-import { Ionicons } from "@expo/vector-icons"
+import React from "react";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+
+interface SidebarProps {
+  animation: Animated.Value;
+  onClose: () => void; // Add this prop to handle closing the sidebar
+}
 
 const dummyChats = [
   { id: "1", title: "Chat about AI", date: "2023-05-01" },
   { id: "2", title: "Travel plans", date: "2023-04-28" },
   { id: "3", title: "Book recommendations", date: "2023-04-25" },
   { id: "4", title: "Coding help", date: "2023-04-22" },
-]
+];
 
-const Sidebar = ({ animation }: any) => {
+const Sidebar: React.FC<SidebarProps> = ({ animation, onClose }) => {
   return (
-      <Animated.View style={[styles.sidebar, { transform: [{ translateX: animation }] }]}>
-        <ScrollView>
-          <Text style={styles.title}>Chat History</Text>
-          {dummyChats.map((chat) => (
-            <TouchableOpacity key={chat.id} style={styles.chatItem}>
-              <Ionicons name="chatbubble-outline" size={24} color="white" />
-              <View style={styles.chatInfo}>
-                <Text style={styles.chatTitle}>{chat.title}</Text>
-                <Text style={styles.chatDate}>{chat.date}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </Animated.View>
-
-  )
-}
+    <Animated.View style={[styles.sidebar, { transform: [{ translateX: animation }] }]}>
+      <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+        <Ionicons name="close" size={24} color="white" />
+      </TouchableOpacity>
+      <ScrollView>
+        <Text style={styles.title}>Chat History</Text>
+        {dummyChats.map((chat) => (
+          <TouchableOpacity key={chat.id} style={styles.chatItem}>
+            <Ionicons name="chatbubble-outline" size={24} color="white" />
+            <View style={styles.chatInfo}>
+              <Text style={styles.chatTitle}>{chat.title}</Text>
+              <Text style={styles.chatDate}>{chat.date}</Text>
+            </View>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </Animated.View>
+  );
+};
 
 const styles = StyleSheet.create({
   sidebar: {
@@ -39,6 +46,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#2C2C2E",
     padding: 16,
     paddingTop: 50,
+  },
+  closeButton: {
+    position: "absolute",
+    top: 16,
+    right: 16,
+    zIndex: 1,
   },
   title: {
     fontSize: 24,
@@ -65,7 +78,6 @@ const styles = StyleSheet.create({
     color: "#999",
     fontSize: 12,
   },
-})
+});
 
-export default Sidebar
-
+export default Sidebar;

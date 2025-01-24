@@ -1,20 +1,21 @@
 import React, { useState, useRef } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Animated, Easing } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Animated } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, NavigationProp } from "@react-navigation/native";
 import Sidebar from "@/components/SideNav";
+import SubscriptionPopup from "@/components/Subscriptions";
 
 type RootStackParamList = {
   Chat: { id: string };
 };
 
-// Dummy database simulation
 const dummyDb: { [key: string]: string[] } = {};
 
 const HomeScreen = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [message, setMessage] = useState("");
+  const [isSubscriptionPopupVisible, setIsSubscriptionPopupVisible] = useState(false);
   const sidebarAnimation = useRef(new Animated.Value(-300)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
@@ -31,23 +32,22 @@ const HomeScreen = () => {
   const handleSend = () => {
     if (message.trim()) {
       const id = Date.now().toString();
-      dummyDb[id] = [message]; 
+      dummyDb[id] = [message];
       fadeAnim.setValue(0);
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 500,
-        easing: Easing.ease,
         useNativeDriver: true,
       }).start(() => {
-        navigation.navigate("chatscreen", { id });
+        navigation.navigate("Chat", { id });
       });
-      setMessage(""); 
+      setMessage("");
     }
   };
 
   const handleSubmitEditing = () => {
     if (message.trim()) {
-      handleSend(); // Reuse the handleSend logic for "Enter" key
+      handleSend();
     }
   };
 
@@ -58,7 +58,7 @@ const HomeScreen = () => {
         <TouchableOpacity onPress={toggleSidebar}>
           <Ionicons name="menu" size={24} color="white" />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.getPlus}>
+        <TouchableOpacity style={styles.getPlus} onPress={() => setIsSubscriptionPopupVisible(true)}>
           <Text style={styles.getPlusText}>Get Plus</Text>
         </TouchableOpacity>
         <TouchableOpacity>
@@ -99,7 +99,8 @@ const HomeScreen = () => {
           <Ionicons name="send" size={24} color="white" />
         </TouchableOpacity>
       </View>
-      <Sidebar animation={sidebarAnimation} />
+      <SubscriptionPopup isVisible={isSubscriptionPopupVisible} onClose={() => setIsSubscriptionPopupVisible(false)} />
+      <Sidebar animation={sidebarAnimation} onClose={toggleSidebar} />
     </View>
   );
 };
