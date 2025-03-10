@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends 
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from datetime import datetime
 from typing import List
@@ -40,8 +41,7 @@ def get_chat_by_id_route(chat_id: str):
 def test(request: WorkflowCreateRequest):
     print(request)
     response = get_model_response(prompt=request)
-    print(response)
-    return {"response": response}
+    return response
 
 # Create or update chat and send/receive messages
 @router.post("/chat")

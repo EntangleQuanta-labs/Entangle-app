@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -10,108 +10,129 @@ import {
   Platform,
   ScrollView,
   SafeAreaView,
-} from "react-native";
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
+  ActivityIndicator,
+  Image,
+} from 'react-native';
 import * as Google from 'expo-auth-session/providers/google';
-import { signInWithCredential, GoogleAuthProvider } from 'firebase/auth';
-import { auth } from "@/utils/fireConfig";
+import { useAuth } from '@/hooks/useAuth';
+import { authService } from '@/utils/authService';
 
-const LoginScreen = ({ navigation }: any) => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+const LoginScreen = ({ navigation }) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { setUser } = useAuth();
 
-  // Firebase Email/Password Authentication
+  // Google OAuth configuration
+  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
+    clientId: process.env.GOOGLE_CLIENT_ID,
+  });
+
+  // Handle email login
   const handleEmailLogin = async () => {
     if (!email || !password) {
-      Alert.alert("Error", "Please enter both email and password.");
+      Alert.alert('Error', 'Please enter both email and password.');
       return;
     }
 
+    setLoading(true);
     try {
-      // Try to sign in with email and password
-      await signInWithEmailAndPassword(auth, email, password);
-      navigation.replace("Home");
+      const loginResponse = await authService.loginWithEmail(email, password);
+      
+      // Update user state
+      setUser({
+        id: loginResponse.user.id,
+        email: loginResponse.user.email
+      });
+
+      navigation.replace('Home');
     } catch (error: any) {
-      if (error.code === "auth/user-not-found") {
-        // If user not found, create a new account
-        try {
-          await createUserWithEmailAndPassword(auth, email, password);
-          navigation.replace("Home");
-        } catch (registerError: any) {
-          Alert.alert("Error", registerError.message);
-        }
-      } else {
-        Alert.alert("Error", error.message);
-      }
+      Alert.alert('Login Error', error.message || 'An error occurred');
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Google Sign-In
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: "YOUR_GOOGLE_CLIENT_ID", // Replace with your Google Client ID
-  });
-
+  // Handle Google sign-in
   React.useEffect(() => {
-    if (response?.type === "success") {
+    if (response?.type === 'success') {
       const { id_token } = response.params;
-      const credential = GoogleAuthProvider.credential(id_token);
-      signInWithCredential(auth, credential)
-        .then(() => {
-          navigation.replace("Home");
-        })
-        .catch((error: any) => {
-          Alert.alert("Error", error.message);
-        });
+      handleGoogleLogin(id_token);
     }
   }, [response]);
 
-  const handleGoogleLogin = () => {
-    promptAsync();
+  const handleGoogleLogin = async (idToken: string) => {
+    setLoading(true);
+    try {
+      const loginResponse = await authService.loginWithGoogle(idToken);
+      
+      // Update user state
+      setUser({
+        id: loginResponse.user.id,
+        email: loginResponse.user.email
+      });
+
+      navigation.replace('Home');
+    } catch (error: any) {
+      Alert.alert('Google Login Error', error.message || 'An error occurred');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}
       >
-        <ScrollView
-          contentContainerStyle={styles.scrollContainer}
-          keyboardShouldPersistTaps="handled"
-        >
-          <Text style={styles.logo}>Claude</Text>
-          <Text style={styles.title}>Do your best work with Claude</Text>
-          <Text style={styles.subtitle}>Enter your email address and password to get started</Text>
+        <ScrollView contentContainerStyle={styles.scrollContainer}>
+          <Image 
+            source={require('../assets/images/logo.png')} 
+            style={styles.logo} 
+          />
+          <Text style={styles.title}>Welcome to Your App</Text>
+          
           <TextInput
             style={styles.input}
-            placeholder="name@yourcompany.com"
-            placeholderTextColor="#666"
+            placeholder="Email"
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
           />
+          
           <TextInput
             style={styles.input}
             placeholder="Password"
-            placeholderTextColor="#666"
             value={password}
             onChangeText={setPassword}
             secureTextEntry
           />
-          <TouchableOpacity style={styles.emailButton} onPress={handleEmailLogin}>
-            <Text style={styles.buttonText}>Continue with Email</Text>
+          
+          <TouchableOpacity 
+            style={styles.button}
+            onPress={handleEmailLogin}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text style={styles.buttonText}>Login</Text>
+            )}
           </TouchableOpacity>
-          <Text style={styles.orText}>OR</Text>
-          <TouchableOpacity style={styles.googleButton} onPress={handleGoogleLogin}>
+          
+          <TouchableOpacity 
+            style={styles.googleButton}
+            onPress={() => promptAsync()}
+            disabled={loading}
+          >
+            <Image 
+              source={require('../assets/google-icon.png')} 
+              style={styles.googleIcon} 
+            />
             <Text style={styles.googleButtonText}>Continue with Google</Text>
           </TouchableOpacity>
-          <Text style={styles.termsText}>
-            By continuing, you agree to Anthropic's{"\n"}
-            <Text style={styles.link}>Consumer Terms</Text> and <Text style={styles.link}>Usage Policy</Text>, and{"\n"}
-            acknowledge their <Text style={styles.link}>Privacy Policy</Text>.
-          </Text>
-          <Text style={styles.anthropicText}>ANTHROPIC</Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -131,6 +152,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
+    marginTop: 20
   },
   logo: {
     fontSize: 36,
@@ -184,8 +206,21 @@ const styles = StyleSheet.create({
     height: 50,
     backgroundColor: "#FFFFFF",
     borderRadius: 10,
-    justifyContent: "center",
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 10, 
+  },
+  googleIcon: {
+    width: 30, 
+    height: 30, 
+    marginRight: 10, 
+  },
+  entangleIcon: {
+    width: 60, 
+    height: 60, 
+    marginRight: 10, 
+    borderRadius : 20
   },
   googleButtonText: {
     color: "#000000",
@@ -202,11 +237,12 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     textDecorationLine: "underline",
   },
-  anthropicText: {
+  entangleText: {
     color: "#CCCCCC",
     fontSize: 12,
     marginTop: 20,
   },
+
 });
 
 export default LoginScreen;

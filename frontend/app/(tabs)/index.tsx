@@ -1,178 +1,488 @@
-import React, { useState, useRef } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Animated } from "react-native";
-import { StatusBar } from "expo-status-bar";
-import { Ionicons } from "@expo/vector-icons";
-import { useNavigation, NavigationProp } from "@react-navigation/native";
-import Sidebar from "@/components/SideNav";
-import SubscriptionPopup from "@/components/Subscriptions";
+import React, { useState, useCallback, useRef } from "react";
+import {
+  View,
+  TextInput,
+  TouchableOpacity,
+  FlatList,
+  StyleSheet,
+  SafeAreaView,
+  Text,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Modal,
+  ScrollView,
+} from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
+import * as FileSystem from "expo-file-system";
+import * as Sharing from "expo-sharing";
+import Markdown from "react-native-markdown-display";
+import { BACKEND_URL } from "@/config";
 
-type RootStackParamList = {
-  Chat: { id: string };
-};
+interface Message {
+  id: string;
+  content: string;
+  type: "text" | "file" | "system";
+  role: "user" | "assistant" | "system";
+  name?: string;
+}
 
-const dummyDb: { [key: string]: string[] } = {};
+const GroqAccessibilityChat = () => {
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: "initial-system",
+      content:
+        "I'm ready to help you create Android Accessibility Service workflows. What task would you like to automate?",
+      type: "system",
+      role: "system",
+    },
+  ]);
+  const [inputText, setInputText] = useState<string>("");
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [selectedFile, setSelectedFile] = useState<Message | null>(null);
+  const flatListRef = useRef<FlatList>(null);
 
-const HomeScreen = () => {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [message, setMessage] = useState("");
-  const [isSubscriptionPopupVisible, setIsSubscriptionPopupVisible] = useState(false);
-  const sidebarAnimation = useRef(new Animated.Value(-300)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
-
-  const toggleSidebar = () => {
-    const toValue = isSidebarOpen ? -300 : 0;
-    Animated.spring(sidebarAnimation, {
-      toValue,
-      useNativeDriver: false,
-    }).start();
-    setIsSidebarOpen(!isSidebarOpen);
-  };
-
-  const handleSend = () => {
-    if (message.trim()) {
-      const id = Date.now().toString();
-      dummyDb[id] = [message];
-      fadeAnim.setValue(0);
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 500,
-        useNativeDriver: true,
-      }).start(() => {
-        navigation.navigate("Chat", { id });
+  /**
+   * Parse the LLM response.
+   *
+   * First, it expects a JSON string containing a "response" property.
+   * Then it extracts one or more <entangle ... /> tags from the "response" value.
+   *
+   * Each tag is parsed to extract attributes such as type, content, and name.
+   * If no valid tag is found, the entire response is treated as plain text.
+   */
+  const parseEntangleResponse = (responseContent: string): Message[] => {
+    const messagesArr: Message[] = [];
+    // Use [\s\S] to match any character including newline
+    const regex = /<entangle\s+([\s\S]*?)\/>/g;
+    let match;
+    while ((match = regex.exec(responseContent)) !== null) {
+      const attributesStr = match[1];
+      const attrRegex = /(\w+)="([^"]*?)"/g;
+      let attrMatch;
+      const attributes: { [key: string]: string } = {};
+      while ((attrMatch = attrRegex.exec(attributesStr)) !== null) {
+        attributes[attrMatch[1]] = attrMatch[2];
+      }
+      // Default type to text if missing
+      const type = attributes["type"] || "text";
+      const content = attributes["content"] || "";
+      if (type === "file") {
+        const name = attributes["name"] || "file.txt";
+        messagesArr.push({
+          id: Date.now().toString() + Math.random().toString(),
+          type: "file",
+          content,
+          role: "assistant",
+          name,
+        });
+      } else {
+        messagesArr.push({
+          id: Date.now().toString() + Math.random().toString(),
+          type: "text",
+          content,
+          role: "assistant",
+        });
+      }
+    }
+    // If no <entangle .../> tags were found, fallback to treating the whole response as text.
+    if (messagesArr.length === 0) {
+      messagesArr.push({
+        id: Date.now().toString(),
+        type: "text",
+        content: responseContent,
+        role: "assistant",
       });
-      setMessage("");
+    }
+    return messagesArr;
+  };
+
+  const saveFile = async (fileName: string, fileContent: string) => {
+    try {
+      const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+      await FileSystem.writeAsStringAsync(fileUri, fileContent);
+      return fileUri;
+    } catch (error) {
+      console.error("Error saving file:", error);
+      return null;
     }
   };
 
-  const handleSubmitEditing = () => {
-    if (message.trim()) {
-      handleSend();
+  const shareFile = async (fileName: string, fileContent: string) => {
+    try {
+      const fileUri = await saveFile(fileName, fileContent);
+      if (fileUri) {
+        await Sharing.shareAsync(fileUri);
+      }
+    } catch (error) {
+      console.error("Error sharing file:", error);
     }
   };
+
+  const sendMessage = useCallback(async (): Promise<void> => {
+    Keyboard.dismiss();
+    if (!inputText.trim()) return;
+
+    // Add user message
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      content: inputText,
+      type: "text",
+      role: "user",
+    };
+    setMessages((prev) => [...prev, userMessage]);
+    setInputText("");
+    setIsLoading(true);
+
+    // Add a temporary assistant placeholder message
+    const assistantPlaceholderId = Date.now().toString();
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: assistantPlaceholderId,
+        content: "Generating accessibility workflow...",
+        type: "text",
+        role: "assistant",
+      },
+    ]);
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/groq`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ input: inputText }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch response");
+      }
+
+      const responseText = await response.text();
+      // First, parse the JSON response to extract the inner content.
+      const jsonResponse = JSON.parse(responseText);
+      const entangleContent = jsonResponse.response || "";
+
+      // Parse the response content into one or more messages
+      const parsedMessages = parseEntangleResponse(entangleContent);
+
+      // Remove the placeholder and append the parsed messages
+      setMessages((prev) => {
+        const newMessages = prev.filter(
+          (msg) => msg.id !== assistantPlaceholderId
+        );
+        return [...newMessages, ...parsedMessages];
+      });
+    } catch (error) {
+      console.error("Error fetching response:", error);
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === assistantPlaceholderId
+            ? {
+                id: assistantPlaceholderId,
+                content: "Sorry, error generating accessibility workflow.",
+                type: "text",
+                role: "assistant",
+              }
+            : msg
+        )
+      );
+    } finally {
+      setIsLoading(false);
+      flatListRef.current?.scrollToEnd({ animated: true });
+    }
+  }, [inputText]);
+
+  const renderMessage = useCallback(({ item }: { item: Message }) => {
+    if (item.type === "text" || item.type === "system") {
+      return (
+        <View
+          style={[
+            styles.messageBubble,
+            item.role === "user"
+              ? styles.userMessage
+              : item.role === "system"
+              ? styles.systemMessage
+              : styles.assistantMessage,
+          ]}
+        >
+          <Markdown
+            style={{
+              body: {
+                ...styles.messageText,
+                ...(item.role === "user"
+                  ? styles.userMessageText
+                  : item.role === "system"
+                  ? styles.systemMessageText
+                  : styles.assistantMessageText),
+              },
+              code_inline: styles.codeInline,
+              code_block: styles.codeBlock,
+              list_item: styles.listItem,
+              paragraph: styles.paragraph,
+            }}
+          >
+            {item.content}
+          </Markdown>
+        </View>
+      );
+    }
+    return (
+      <TouchableOpacity
+        onPress={() => setSelectedFile(item)}
+        style={styles.fileContainer}
+      >
+        <View style={styles.fileCard}>
+          <View style={styles.fileIconContainer}>
+            <MaterialIcons name="insert-drive-file" size={24} color="#3b82f6" />
+          </View>
+          <View style={styles.fileInfo}>
+            <Text style={styles.fileName}>{item.name}</Text>
+            <Text style={styles.fileType}>
+              {item.name?.split(".").pop()?.toUpperCase() || "FILE"}
+            </Text>
+          </View>
+          <MaterialIcons name="chevron-right" size={24} color="#6b7280" />
+        </View>
+      </TouchableOpacity>
+    );
+  }, []);
 
   return (
-    <View style={styles.container}>
-      <StatusBar style="light" />
-      <View style={styles.header}>
-        <TouchableOpacity onPress={toggleSidebar}>
-          <Ionicons name="menu" size={24} color="white" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.getPlus} onPress={() => setIsSubscriptionPopupVisible(true)}>
-          <Text style={styles.getPlusText}>Get Plus</Text>
-        </TouchableOpacity>
-        <TouchableOpacity>
-          <Ionicons name="ellipsis-vertical" size={24} color="white" />
-        </TouchableOpacity>
-      </View>
-      <View style={styles.content}>
-        <Text style={styles.title}>What can I help with?</Text>
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity style={styles.button}>
-            <Ionicons name="create-outline" size={24} color="#4CAF50" />
-            <Text style={styles.buttonText}>Create image</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.button}>
-            <Ionicons name="eye-outline" size={24} color="#2196F3" />
-            <Text style={styles.buttonText}>Analyze images</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.button}>
-            <Ionicons name="document-text-outline" size={24} color="#FF9800" />
-            <Text style={styles.buttonText}>Summarize text</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.button}>
-            <Ionicons name="ellipsis-horizontal" size={24} color="#9E9E9E" />
-            <Text style={styles.buttonText}>More</Text>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
+      <SafeAreaView style={styles.container}>
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          renderItem={renderMessage}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.messageList}
+          showsVerticalScrollIndicator={false}
+        />
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={styles.input}
+            value={inputText}
+            onChangeText={setInputText}
+            placeholder="Describe your Android Accessibility workflow..."
+            multiline
+            placeholderTextColor="#999"
+          />
+          <TouchableOpacity
+            style={[
+              styles.sendButton,
+              { opacity: inputText.trim() && !isLoading ? 1 : 0.5 },
+            ]}
+            onPress={sendMessage}
+            disabled={!inputText.trim() || isLoading}
+          >
+            <MaterialIcons name="send" size={24} color="white" />
           </TouchableOpacity>
         </View>
-      </View>
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="Message"
-          placeholderTextColor="#666"
-          value={message}
-          onChangeText={setMessage}
-          onSubmitEditing={handleSubmitEditing}
-        />
-        <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
-          <Ionicons name="send" size={24} color="white" />
-        </TouchableOpacity>
-      </View>
-      <SubscriptionPopup isVisible={isSubscriptionPopupVisible} onClose={() => setIsSubscriptionPopupVisible(false)} />
-      <Sidebar animation={sidebarAnimation} onClose={toggleSidebar} />
-    </View>
+
+        {selectedFile && (
+          <Modal
+            animationType="slide"
+            transparent={true}
+            visible={!!selectedFile}
+            onRequestClose={() => setSelectedFile(null)}
+          >
+            <View style={styles.modalContainer}>
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>{selectedFile.name}</Text>
+                  <TouchableOpacity
+                    onPress={() =>
+                      selectedFile?.name &&
+                      selectedFile?.content &&
+                      shareFile(selectedFile.name, selectedFile.content)
+                    }
+                  >
+                    <MaterialIcons name="share" size={24} color="#3b82f6" />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setSelectedFile(null)}>
+                    <MaterialIcons name="close" size={24} color="#6b7280" />
+                  </TouchableOpacity>
+                </View>
+                <ScrollView style={styles.modalScrollView}>
+                  <Text style={styles.fileContentText}>
+                    {selectedFile.content}
+                  </Text>
+                </ScrollView>
+              </View>
+            </View>
+          </Modal>
+        )}
+      </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#1C1C1E",
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 16,
-    paddingTop: 50,
-  },
-  getPlus: {
-    backgroundColor: "#2C2C2E",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  getPlusText: {
-    color: "white",
-    fontWeight: "bold",
-  },
-  content: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 16,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "white",
-    marginBottom: 24,
-  },
-  buttonContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
-  },
-  button: {
-    backgroundColor: "#2C2C2E",
-    padding: 16,
-    borderRadius: 8,
-    margin: 8,
-    alignItems: "center",
-    width: "40%",
-  },
-  buttonText: {
-    color: "white",
-    marginTop: 8,
+    backgroundColor: "#fff",
   },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 12,
-    backgroundColor: "#2C2C2E",
+    padding: 10,
+    borderTopWidth: 1,
+    borderColor: "#ddd",
   },
   input: {
     flex: 1,
-    backgroundColor: "#3C3C3E",
+    padding: 10,
+    backgroundColor: "#f9f9f9",
     borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    color: "white",
+    borderWidth: 1,
+    borderColor: "#ddd",
+  },
+  messageBubble: {
+    padding: 10,
+    borderRadius: 10,
+    marginVertical: 5,
+    maxWidth: "80%",
+  },
+  assistantMessage: {
+    backgroundColor: "#e0f7fa",
+    alignSelf: "flex-start",
+  },
+  userMessage: {
+    backgroundColor: "#d1e7dd",
+    alignSelf: "flex-end",
   },
   sendButton: {
+    backgroundColor: "#3b82f6",
+    borderRadius: 20,
+    padding: 10,
+    marginLeft: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  userMessageText: {
+    color: "#000",
+  },
+  assistantMessageText: {
+    color: "#000",
+  },
+  systemMessage: {
+    backgroundColor: "#f0f0f0",
+    alignSelf: "center",
+  },
+  fileBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#3b82f6",
+    borderRadius: 10,
     padding: 8,
+  },
+  fileText: {
+    color: "white",
+    marginLeft: 8,
+    fontWeight: "600",
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  modalContent: {
+    width: "90%",
+    backgroundColor: "white",
+    borderRadius: 15,
+    padding: 15,
+    maxHeight: "80%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    flex: 1,
+  },
+  modalScrollView: {
+    maxHeight: 400,
+  },
+  fileContentText: {
+    fontFamily: "monospace",
+    fontSize: 14,
+  },
+  codeInline: {
+    backgroundColor: "#f5f5f5",
+    borderRadius: 4,
+    padding: 4,
+    fontFamily: "monospace",
+  },
+  messageList: {
+    padding: 10,
+  },
+  systemMessageText: {
+    color: "#6b7280",
+    fontStyle: "italic",
+  },
+  codeBlock: {
+    backgroundColor: "#f5f5f5",
+    borderRadius: 4,
+    padding: 10,
+    fontFamily: "monospace",
+  },
+  fileContainer: {
+    marginVertical: 5,
+    paddingHorizontal: 10,
+    width: "100%",
+  },
+  fileCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "white",
+    borderRadius: 12,
+    padding: 15,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  fileIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#e6f0ff",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  fileInfo: {
+    flex: 1,
+  },
+  fileName: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1f2937",
+  },
+  fileType: {
+    fontSize: 12,
+    color: "#6b7280",
+    marginTop: 2,
+  },
+  messageText: {
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  paragraph: {
+    marginVertical: 4,
+  },
+  listItem: {
+    marginVertical: 2,
   },
 });
 
-export default HomeScreen;
+export default GroqAccessibilityChat;

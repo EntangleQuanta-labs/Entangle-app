@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from app.api.workflows import router as workflows_router
+from app.api.res import router 
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -17,6 +18,7 @@ app.add_middleware(
 )
 
 app.include_router(workflows_router, prefix="/api")
+app.include_router(router, prefix="/api")
 
 @app.get("/")
 def read_root():

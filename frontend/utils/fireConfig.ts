@@ -1,14 +1,20 @@
 import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
 import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID",
+  apiKey: "AIzaSyAnIqejOv5oToU18sV0TL9T5vJBp7Vjztk",
+  authDomain: "entangle-78c0c.firebaseapp.com",
+  projectId: "entangle-78c0c",
+  storageBucket: "entangle-78c0c.firebasestorage.app",
+  messagingSenderId: "77044800285",
+  appId: "1:77044800285:web:1e9d7443237de155a6dff4",
+  measurementId: "G-22PS541P35"
 };
 
 const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
+
+const auth = getAuth(app);
+
+
+export default auth

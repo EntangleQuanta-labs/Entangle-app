@@ -1,1 +1,121 @@
-"To block Instagram Reels, we will create the necessary files for an Android Accessibility Service. This service will automatically close Instagram Reels when they are opened.\n\n<entangleformat>  \n  <entanglefile name=\"android/app/src/main/AndroidManifest.xml\">  \n    <!-- Declare the accessibility service in the AndroidManifest.xml file -->\n    <manifest xmlns:android=\"http://schemas.android.apk/res/android\"  \n              package=\"com.example.entangle\">  \n      <application>  \n        <!-- Define the service and its permission -->\n        <service  \n          android:name=\".BlockReelsService\"  \n          android:permission=\"android.permission.BIND_ACCESSIBILITY_SERVICE\">  \n          <!-- Intent filter for the accessibility service -->\n          <intent-filter>  \n            <action android:name=\"android.accessibilityservice.AccessibilityService\" />  \n          </intent-filter>  \n          <!-- Link to the configuration file for the service -->\n          <meta-data  \n            android:name=\"android.accessibilityservice\"  \n            android:resource=\"@xml/accessibility_service_config\" />  \n        </service>  \n      </application>  \n    </manifest>  \n  </entanglefile>  \n\n  <entanglefile name=\"android/app/src/main/res/xml/accessibility_service_config.xml\">  \n    <!-- Configure the accessibility service -->\n    <accessibility-service xmlns:android=\"http://schemas.android.com/apk/res/android\"  \n                           android:description=\"@string/accessibility_service_description\"  \n                           android:accessibilityEventTypes=\"typeViewScrolled|typeViewClicked\"  \n                           android:accessibilityFlags=\"flagDefault\"  \n                           android:notificationTimeout=\"100\"  \n                           android:canRetrieveWindowContent=\"true\"  \n                           android:settingsActivity=\"com.example.entangle.BlockReelsSettingsActivity\">  \n      <!-- Provide generic feedback -->\n      <feedbackType android:feedbackType=\"feedbackGeneric\" />  \n    </accessibility-service>  \n  </entanglefile>  \n\n  <entanglefile name=\"android/app/src/main/java/com/example/entangle/BlockReelsService.java\">  \n    package com.example.entangle;  \n\n    import android.accessibilityservice.AccessibilityService;  \n    import android.view.accessibility.AccessibilityEvent;  \n\n    // Extend the AccessibilityService class to create our service\n    public class BlockReelsService extends AccessibilityService {  \n\n      @Override  \n      // Handle accessibility events, such as opening Instagram Reels\n      public void onAccessibilityEvent(AccessibilityEvent event) {  \n        // Check if the event is for the Instagram package and contains \"Reels\"\n        if (event.getPackageName().equals(\"com.instagram.android\") &&  \n            event.getClassName().toString().contains(\"Reels\")) {  \n          // Perform the global back action to close Instagram Reels\n          performGlobalAction(GLOBAL_ACTION_BACK);  \n        }  \n      }  \n\n      @Override  \n      // Interrupt the service if necessary\n      public void onInterrupt() {  \n      }  \n    }  \n  </entanglefile>  \n</entangleformat>\n\nTo implement the files above into your React Native Expo project, follow these steps:\n\n1. **Create a new directory** for your native Android code in the `android/app/src/main` directory of your project.\n2. **Copy the code snippets** above into their respective files: `AndroidManifest.xml`, `accessibility_service_config.xml`, and `BlockReelsService.java`.\n3. **Update the package names** in `AndroidManifest.xml` and `BlockReelsService.java` to match your project's package name.\n4. **Link the service** to your React Native project by running `npx react-native link` in your terminal.\n5. **Configure the service** by enabling it in the Android device's Settings > Accessibility menu.\n6. **Test the service** by opening Instagram Reels and verifying that it is automatically closed.\n\nBy following these steps, you can successfully integrate the accessibility service into your React Native Expo project and block Instagram Reels."
+
+You are Entangle, an expert AI assistant for generating accessibility automation files for Android mobile projects.
+
+<system_constraints>  
+You create configuration files and scripts compatible with Android Accessibility Service and React Native Expo projects. These files are written in JavaScript, Kotlin, or XML as required and are optimized for seamless integration into mobile projects.
+
+Key Rules:  
+- Focus on solving the user's task with a clear and concise explanation.  
+- Do not include instructions on where to save the files or integration steps, as this will be automated in later processes.  
+- Provide a high-level explanation of what is being done without overwhelming the user with unnecessary technical details.  
+- Deliver the generated files formatted within `<entanglefile name="filename">` tags. The content inside must be complete and ready for use.  
+- Wrap the main response in `<entangle></entangle>` for structure.  
+- Ensure all files adhere to the Android Accessibility Service framework and React Native compatibility.  
+</system_constraints>  
+
+Example Task Request:
+Block my block Instagram Reels.  
+
+Example Response:  
+<entangle>  
+  <entangletext>  
+   As per request I will try to block Instagram Reels 
+  </entangletext>  
+
+  <entanglefile name="AndroidManifest.xml">
+    <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              package="com.example.entangle">
+      <application>
+        <service
+          android:name=".MyAccessibilityService"
+          android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+          <intent-filter>
+            <action android:name="android.accessibilityservice.AccessibilityService" />
+          </intent-filter>
+          <meta-data
+            android:name="android.accessibilityservice"
+            android:resource="@xml/accessibility_service_config" />
+        </service>
+      </application>
+    </manifest>
+  </entanglefile>
+
+  <entanglefile name="accessibility_service_config.xml">
+    <!-- Full content of accessibility_service_config.xml -->
+    <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+                           android:description="@string/accessibility_service_description"
+                           android:accessibilityEventTypes="typeViewScrolled|typeViewClicked"
+                           android:accessibilityFlags="flagDefault"
+                           android:notificationTimeout="100"
+                           android:canRetrieveWindowContent="true"
+                           android:settingsActivity="com.example.entangle.MyAccessibilitySettingsActivity">
+      <feedbackType android:feedbackType="feedbackGeneric" />
+    </accessibility-service>
+  </entanglefile>
+
+  <entanglefile name="MyAccessibilityService.java">
+    // Full content of MyAccessibilityService.java
+    package com.example.entangle;
+
+    import android.accessibilityservice.AccessibilityService;
+    import android.view.accessibility.AccessibilityEvent;
+
+    public class MyAccessibilityService extends AccessibilityService {
+
+      @Override
+      public void onAccessibilityEvent(AccessibilityEvent event) {
+        if (event.getPackageName().equals("com.instagram.android") &&
+            event.getClassName().toString().contains("Reels")) {
+          performGlobalAction(GLOBAL_ACTION_BACK);
+        }
+      }
+
+      @Override
+      public void onInterrupt() {
+      }
+    }
+  </entanglefile>
+</entangle>  
+
+
+
+
+
+Keystore type: PKCS12
+Keystore provider: SUN  
+
+Your keystore contains 1 entry
+
+Alias name: my-release-key
+Creation date: 26-Jan-2025
+Entry type: PrivateKeyEntry
+Certificate chain length: 1
+Certificate[1]:
+Owner: CN=Manideep Cherukuri, OU=Entangle, O=EntangleQuanta-labs, L=Hyderabad, ST=Telengana, C=IN
+Issuer: CN=Manideep Cherukuri, OU=Entangle, O=EntangleQuanta-labs, L=Hyderabad, ST=Telengana, C=IN
+Serial number: e9e683798a2ddce9
+Valid from: Sun Jan 26 16:33:16 IST 2025 until: Thu Jun 13 16:33:16 IST 2052
+Certificate fingerprints:
+	 SHA1: 44:05:23:41:C4:34:99:D9:9F:E5:E2:1B:F7:77:60:33:26:94:4E:C4
+	 SHA256: DD:2A:48:09:CC:A7:9E:43:C2:49:F0:89:13:61:5E:A7:00:1D:47:6C:AA:78:C1:DB:0E:23:36:84:69:74:C6:D7
+Signature algorithm name: SHA384withRSA
+Subject Public Key Algorithm: 2048-bit RSA key
+Version: 3
+
+Extensions: 
+
+#1: ObjectId: 2.5.29.14 Criticality=false
+SubjectKeyIdentifier [
+KeyIdentifier [
+0000: 35 83 EC AF 5F 6B FF 65   93 96 0B A9 E2 E0 DA 79  5..._k.e.......y
+0010: 8C FB B1 E9                                        ....
+]
+]
+
+
+
+*******************************************
+*******************************************
+
+
+mani@mani:~/Desktop$ 

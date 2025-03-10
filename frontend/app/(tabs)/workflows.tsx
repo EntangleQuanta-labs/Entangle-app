@@ -1,54 +1,77 @@
-import React, { useState } from "react"
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Switch } from "react-native"
-import { useNavigation } from "@react-navigation/native"
-import { Ionicons } from "@expo/vector-icons"
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  FlatList,
+  Switch,
+  Alert,
+  NativeModules,
+} from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// Dummy data for workflows
-const dummyWorkflows = [
-  { id: "1", title: "Daily Task Summarizer", isActive: true },
-  { id: "2", title: "Email Classifier", isActive: false },
-  { id: "3", title: "Meeting Notes Generator", isActive: true },
-  { id: "4", title: "Code Reviewer", isActive: false },
-  { id: "5", title: "Social Media Post Scheduler", isActive: true },
-]
+const { AccessibilityServiceManager } = NativeModules;
 
 const WorksScreen = () => {
-  const [workflows, setWorkflows] = useState(dummyWorkflows)
-  const navigation = useNavigation()
-
-  const toggleWorkflow = (id) => {
-    setWorkflows(
-      workflows.map((workflow) => (workflow.id === id ? { ...workflow, isActive: !workflow.isActive } : workflow)),
-    )
+  interface Workflow {
+    id: string;
+    name: string;
+    isActive: boolean;
   }
+  
+  const [workflows, setWorkflows] = useState<Workflow[]>([]);
 
-  const renderWorkflowItem = ({ item }:any) => (
+  useEffect(() => {
+    const loadWorkflows = async () => {
+      const storedWorkflows = await AsyncStorage.getItem("workflows");
+      if (storedWorkflows) setWorkflows(JSON.parse(storedWorkflows));
+    };
+    loadWorkflows();
+  }, []);
+
+  const checkAccessibilityEnabled = async () => {
+    const enabled = await AccessibilityServiceManager.isAccessibilityEnabled();
+    return enabled;
+  };
+
+  const toggleWorkflow = async (id: string) => {
+    const updatedWorkflows = workflows.map((workflow) =>
+      workflow.id === id ? { ...workflow, isActive: !workflow.isActive } : workflow
+    );
+
+    setWorkflows(updatedWorkflows);
+    await AsyncStorage.setItem("workflows", JSON.stringify(updatedWorkflows));
+
+    const isEnabled = await checkAccessibilityEnabled();
+    if (!isEnabled) {
+      Alert.alert("Error", "Enable Accessibility Service first!");
+      return;
+    }
+
+    const workflow = updatedWorkflows.find((w) => w.id === id);
+    if (workflow?.isActive) {
+      AccessibilityServiceManager.startService(id);
+      Alert.alert("Activated", `${workflow.name} is now running.`);
+    } else {
+      AccessibilityServiceManager.stopService(id);
+      Alert.alert("Deactivated", `${workflow?.name ?? 'Workflow'} is now off.`);
+    }
+  };
+
+  const renderWorkflowItem = ({ item }: any) => (
     <View style={styles.workflowItem}>
-      <Text style={styles.workflowTitle}>{item.title}</Text>
-      <Switch
-        trackColor={{ false: "#767577", true: "#81b0ff" }}
-        thumbColor={item.isActive ? "#f5dd4b" : "#f4f3f4"}
-        ios_backgroundColor="#3e3e3e"
-        onValueChange={() => toggleWorkflow(item.id)}
-        value={item.isActive}
-      />
+      <Text style={styles.workflowTitle}>{item.name}</Text>
+      <Switch onValueChange={() => toggleWorkflow(item.id)} value={item.isActive} />
     </View>
-  )
-
-  const handleAddWorkflow = () => {
-    navigation.navigate("index", { activateSearch: true })
-  }
+  );
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Workflows</Text>
-      <FlatList data={workflows} renderItem={renderWorkflowItem} keyExtractor={(item) => item.id} style={styles.list} />
-      <TouchableOpacity style={styles.addButton} onPress={handleAddWorkflow}>
-        <Ionicons name="add" size={24} color="white" />
-      </TouchableOpacity>
+      <FlatList data={workflows} renderItem={renderWorkflowItem} keyExtractor={(item) => item.id} />
     </View>
-  )
-}
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -92,4 +115,3 @@ const styles = StyleSheet.create({
 })
 
 export default WorksScreen
-

@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "533911963810",
+    "project_id": "leet-9db6e",
+    "storage_bucket": "leet-9db6e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:533911963810:android:bd4761f75d18305c13effb",
+        "android_client_info": {
+          "package_name": "com.entangle.com"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "533911963810-8p7n4l65pvan76jop5ct6arg2hgvdvvm.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDHGG8ezMnVGYKvxiDBxYz6pPaEDEN9x-k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "533911963810-8p7n4l65pvan76jop5ct6arg2hgvdvvm.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
